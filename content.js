@@ -514,6 +514,45 @@
     saveAll(() => { renderBoard(); showToast('Contato removido'); });
   }
 
+  function deleteColumn(colIndex) {
+    if (cols.length <= 1) {
+      showToast('Mantenha pelo menos uma coluna.');
+      return;
+    }
+    if (cards.some(card => card.colIndex === colIndex)) {
+      showToast('Esta coluna possui contatos. Mova os contatos antes de excluir.');
+      return;
+    }
+
+    cols.splice(colIndex, 1);
+    saveAll(() => {
+      renderBoard();
+      showToast('Coluna excluida');
+    });
+  }
+
+  function moveColumn(colIndex, direction) {
+    const targetIndex = colIndex + direction;
+    if (targetIndex < 0 || targetIndex >= cols.length) return;
+
+    const currentCol = cols[colIndex];
+    cols[colIndex] = cols[targetIndex];
+    cols[targetIndex] = currentCol;
+
+    cards.forEach(card => {
+      if (card.colIndex === colIndex) {
+        card.colIndex = targetIndex;
+      } else if (card.colIndex === targetIndex) {
+        card.colIndex = colIndex;
+      }
+    });
+
+    saveAll(() => {
+      renderBoard();
+      showToast('Coluna movida');
+    });
+  }
+
   function columnLabelExists(label, currentIndex) {
     const target = normalizeName(label).toLowerCase();
     return cols.some((col, i) => i !== currentIndex && normalizeName(col.label).toLowerCase() === target);
@@ -665,9 +704,35 @@
       headerAddBtn.textContent = '+';
       headerAddBtn.addEventListener('click', () => showColInlineAdd(i));
 
+      const headerLeftBtn = document.createElement('button');
+      headerLeftBtn.className = 'wk-col-head-move';
+      headerLeftBtn.type = 'button';
+      headerLeftBtn.title = 'Mover coluna para a esquerda';
+      headerLeftBtn.textContent = '←';
+      headerLeftBtn.disabled = i === 0;
+      headerLeftBtn.addEventListener('click', () => moveColumn(i, -1));
+
+      const headerRightBtn = document.createElement('button');
+      headerRightBtn.className = 'wk-col-head-move';
+      headerRightBtn.type = 'button';
+      headerRightBtn.title = 'Mover coluna para a direita';
+      headerRightBtn.textContent = '→';
+      headerRightBtn.disabled = i === cols.length - 1;
+      headerRightBtn.addEventListener('click', () => moveColumn(i, 1));
+
+      const headerDelBtn = document.createElement('button');
+      headerDelBtn.className = 'wk-col-head-del';
+      headerDelBtn.type = 'button';
+      headerDelBtn.title = 'Excluir coluna vazia';
+      headerDelBtn.textContent = '×';
+      headerDelBtn.addEventListener('click', () => deleteColumn(i));
+
       colHeader.appendChild(nameInp);
       colHeader.appendChild(badge);
+      colHeader.appendChild(headerLeftBtn);
+      colHeader.appendChild(headerRightBtn);
       colHeader.appendChild(headerAddBtn);
+      colHeader.appendChild(headerDelBtn);
 
       /* Lista de cards */
       const listEl = document.createElement('div');

@@ -326,6 +326,35 @@ body.wk-collapsed {
   background: var(--wk-soft);
 }
 
+.wk-col-head-move,
+.wk-col-head-del {
+  width: 28px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wk-faint);
+  font: 400 20px/1 var(--wk-font);
+  cursor: pointer;
+}
+
+.wk-col-head-move:hover,
+.wk-col-head-del:hover {
+  border-color: var(--wk-border);
+  background: var(--wk-soft);
+  color: #111827;
+}
+
+.wk-col-head-move:disabled {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.wk-col-head-del:hover {
+  color: var(--wk-danger);
+}
+
 .wk-card-list {
   flex: 1;
   display: flex;
