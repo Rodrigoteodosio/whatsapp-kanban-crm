@@ -514,6 +514,47 @@
     saveAll(() => { renderBoard(); showToast('Contato removido'); });
   }
 
+  function columnLabelExists(label, currentIndex) {
+    const target = normalizeName(label).toLowerCase();
+    return cols.some((col, i) => i !== currentIndex && normalizeName(col.label).toLowerCase() === target);
+  }
+
+  function startColumnRename(inp) {
+    if (editMode) return;
+    inp.dataset.originalValue = inp.value;
+    inp.readOnly = false;
+    inp.classList.add('editable');
+    inp.focus();
+    inp.select();
+  }
+
+  function cancelColumnRename(inp) {
+    inp.value = inp.dataset.originalValue || inp.value;
+    inp.readOnly = true;
+    inp.classList.remove('editable');
+  }
+
+  function saveColumnRename(inp, colIndex) {
+    const label = inp.value.trim();
+    if (!label) {
+      showToast('Nome da coluna não pode ficar vazio.');
+      inp.focus();
+      return;
+    }
+    if (columnLabelExists(label, colIndex)) {
+      showToast('Esta coluna já existe.');
+      inp.focus();
+      return;
+    }
+
+    cols[colIndex].label = label;
+    saveAll(() => {
+      inp.readOnly = true;
+      inp.classList.remove('editable');
+      showToast('Nome da coluna salvo');
+    });
+  }
+
   /* ============================================================
      MODO EDIÇÃO DE COLUNAS
   ============================================================ */
@@ -606,6 +647,12 @@
       nameInp.value     = col.label;
       nameInp.readOnly  = !editMode;
       nameInp.maxLength = 32;
+      nameInp.addEventListener('dblclick', () => startColumnRename(nameInp));
+      nameInp.addEventListener('keydown', e => {
+        if (editMode) return;
+        if (e.key === 'Enter') { e.preventDefault(); saveColumnRename(nameInp, i); }
+        if (e.key === 'Escape') cancelColumnRename(nameInp);
+      });
 
       const badge = document.createElement('span');
       badge.className   = 'wk-col-count';
