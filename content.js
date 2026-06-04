@@ -808,6 +808,7 @@
         <button class="wk-icon-btn" id="wk-btn-menu" title="Adicionar contato manual">${iconMenu()}</button>
         <span id="wk-title">Kanban CRM</span>
         <span id="wk-total-count">0</span>
+        <button class="wk-text-btn" id="wk-btn-add-col" type="button">+ Coluna</button>
 
         <div class="wk-toolbar-spacer"></div>
 
@@ -822,7 +823,6 @@
         </div>
 
         <button class="wk-icon-btn" id="wk-btn-edit-cols" title="Editar colunas">${iconSliders()}</button>
-        <button class="wk-text-btn" id="wk-btn-add-col" type="button">+ Coluna</button>
         <button class="wk-icon-btn" id="wk-btn-refresh" title="Atualizar">${iconRefresh()}</button>
 
         <button class="wk-icon-btn" id="wk-btn-collapse" title="Expandir">${iconExpand()}</button>
