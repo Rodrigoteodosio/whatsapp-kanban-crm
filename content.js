@@ -487,6 +487,12 @@
     const inp = document.getElementById('wk-col-add-input');
     const label = inp.value.trim();
     if (!label) { inp.focus(); return; }
+    const exists = cols.some(col => normalizeName(col.label).toLowerCase() === normalizeName(label).toLowerCase());
+    if (exists) {
+      showToast('Esta coluna já existe.');
+      inp.focus();
+      return;
+    }
 
     cols.push({ label });
     saveAll(() => {
