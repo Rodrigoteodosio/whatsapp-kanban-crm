@@ -6,7 +6,7 @@
  *
  * Dados salvos em chrome.storage.local:
  *   wk_cards   → [ { id, chatId, name, note, colIndex, createdAt } ]
- *   wk_cols    → [ { label } ]   (nomes das 4 colunas)
+ *   wk_cols    → [ { label } ]   (nomes das colunas)
  */
 
 (function () {
@@ -466,6 +466,37 @@
   }
 
   /* ============================================================
+     ADICIONAR COLUNA
+  ============================================================ */
+
+  function toggleColumnAdd() {
+    const bar = document.getElementById('wk-col-add');
+    const inp = document.getElementById('wk-col-add-input');
+    const visible = bar.classList.toggle('visible');
+    if (visible) {
+      inp.value = '';
+      inp.focus();
+    }
+  }
+
+  function hideColumnAdd() {
+    document.getElementById('wk-col-add').classList.remove('visible');
+  }
+
+  function confirmColumnAdd() {
+    const inp = document.getElementById('wk-col-add-input');
+    const label = inp.value.trim();
+    if (!label) { inp.focus(); return; }
+
+    cols.push({ label });
+    saveAll(() => {
+      hideColumnAdd();
+      renderBoard();
+      showToast('Coluna adicionada: ' + label);
+    });
+  }
+
+  /* ============================================================
      DELETAR CARD
   ============================================================ */
 
@@ -738,6 +769,7 @@
         </div>
 
         <button class="wk-icon-btn" id="wk-btn-edit-cols" title="Editar colunas">${iconSliders()}</button>
+        <button class="wk-text-btn" id="wk-btn-add-col" type="button">+ Coluna</button>
         <button class="wk-icon-btn" id="wk-btn-refresh" title="Atualizar">${iconRefresh()}</button>
 
         <button class="wk-icon-btn" id="wk-btn-collapse" title="Expandir">${iconExpand()}</button>
@@ -747,6 +779,12 @@
         <input id="wk-quick-input" type="text" placeholder="Nome do contato…" maxlength="60" autocomplete="off">
         <button class="wk-quick-btn save"   id="wk-quick-save">Adicionar</button>
         <button class="wk-quick-btn cancel" id="wk-quick-cancel">Cancelar</button>
+      </div>
+
+      <div id="wk-col-add">
+        <input id="wk-col-add-input" type="text" placeholder="Nome da coluna…" maxlength="32" autocomplete="off">
+        <button class="wk-quick-btn save"   id="wk-col-add-save">Salvar</button>
+        <button class="wk-quick-btn cancel" id="wk-col-add-cancel">Cancelar</button>
       </div>
 
       <div id="wk-board"></div>
@@ -821,6 +859,15 @@
 
     /* Editar colunas */
     document.getElementById('wk-btn-edit-cols').addEventListener('click', toggleEditMode);
+
+    /* Adicionar coluna */
+    document.getElementById('wk-btn-add-col').addEventListener('click', toggleColumnAdd);
+    document.getElementById('wk-col-add-save').addEventListener('click', confirmColumnAdd);
+    document.getElementById('wk-col-add-cancel').addEventListener('click', hideColumnAdd);
+    document.getElementById('wk-col-add-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); confirmColumnAdd(); }
+      if (e.key === 'Escape') hideColumnAdd();
+    });
 
     /* Modal */
     modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
