@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "WhatsApp Kanban CRM",
+  "version": "1.0.0",
+  "description": "CRM visual em formato Kanban para o WhatsApp Web. Organize suas conversas em colunas: Novo, Em atendimento, Retornar e Fechado.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://web.whatsapp.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_title": "WhatsApp Kanban CRM"
+  }
+}
