@@ -30,6 +30,7 @@
   let cols       = [];           // array de colunas { label }
   let draggedId  = null;         // card sendo arrastado
   let editingId  = null;         // card aberto no modal
+  let modalMode  = 'edit';       // edit | note
   let editMode   = false;        // modo "editar nomes de colunas"
   let toastTimer = null;
   let chatObserver = null;
@@ -71,6 +72,19 @@
     return (name || '').replace(/\s+/g, ' ').trim();
   }
 
+  function normalizeContactName(name) {
+    return normalizeName(name).replace(/:+$/g, '').trim().toLowerCase();
+  }
+
+  function normalizePhone(value) {
+    return (value || '').replace(/\D+/g, '');
+  }
+
+  function contactPhone(value) {
+    const phone = normalizePhone(value);
+    return phone.length >= 8 ? phone : '';
+  }
+
   function makeManualCard(name, colIndex) {
     return {
       id: uid(),
@@ -81,16 +95,6 @@
       createdAt: new Date().toISOString(),
       source: 'manual',
     };
-  }
-
-  function cardTime(card) {
-    const d = new Date(card.createdAt || Date.now());
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  function cardPreview(card) {
-    return card.note || 'Ultima mensagem do contato...';
   }
 
   function svg(paths) {
@@ -192,7 +196,67 @@
       if (value) return attr + ':' + value;
     }
 
-    return 'name:' + normalizeName(name).toLowerCase();
+    return 'name:' + normalizeContactName(name);
+  }
+
+  function chatKeys(chat) {
+    const keys = [];
+    const chatId = chat.chatId || '';
+    const phone = contactPhone((chat.name || '') + ' ' + chatId);
+    const name = normalizeContactName(chat.name);
+    if (chatId && !chatId.startsWith('name:')) keys.push('id:' + chatId);
+    if (phone) keys.push('phone:' + phone);
+    if (name) keys.push('name:' + name);
+    return keys;
+  }
+
+  function cardKeys(card) {
+    const keys = [];
+    const chatId = card.chatId || '';
+    const phone = contactPhone((card.name || '') + ' ' + chatId);
+    const name = normalizeContactName(card.name);
+    if (chatId && !chatId.startsWith('name:')) keys.push('id:' + chatId);
+    if (phone) keys.push('phone:' + phone);
+    if (name) keys.push('name:' + name);
+    return keys;
+  }
+
+  function primaryCardKey(card) {
+    const keys = cardKeys(card);
+    return keys.find(key => key.startsWith('phone:'))
+      || keys.find(key => key.startsWith('name:'))
+      || keys.find(key => key.startsWith('id:'))
+      || 'card:' + card.id;
+  }
+
+  function mergeCardData(target, duplicate) {
+    if (!target.note && duplicate.note) target.note = duplicate.note;
+    if (!target.chatId && duplicate.chatId) target.chatId = duplicate.chatId;
+    if ((!target.source || target.source === 'manual') && duplicate.source) target.source = duplicate.source;
+    if (!target.createdAt && duplicate.createdAt) target.createdAt = duplicate.createdAt;
+  }
+
+  function dedupeCards() {
+    const byKey = new Map();
+    let removed = 0;
+
+    cards.forEach(card => {
+      const key = primaryCardKey(card);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, card);
+        return;
+      }
+
+      const keep = (card.colIndex || 0) > (existing.colIndex || 0) ? card : existing;
+      const drop = keep === card ? existing : card;
+      mergeCardData(keep, drop);
+      byKey.set(key, keep);
+      removed += 1;
+    });
+
+    if (removed > 0) cards = Array.from(byKey.values());
+    return removed;
   }
 
   function extractChatsFromWhatsApp() {
@@ -223,18 +287,18 @@
   }
 
   function findCardByChat(chat) {
-    if (chat.chatId) {
-      const byId = cards.find(card => card.chatId === chat.chatId || card.id === chat.chatId);
-      if (byId) return byId;
-    }
-
-    const normalized = chat.name.toLowerCase();
-    return cards.find(card => !card.chatId && normalizeName(card.name).toLowerCase() === normalized);
+    const keys = new Set(chatKeys(chat));
+    return cards.find(card => cardKeys(card).some(key => keys.has(key)));
   }
 
   function syncChatsFromWhatsApp(options = {}) {
     const chats = extractChatsFromWhatsApp();
-    if (!chats.length) return;
+    let removed = options.cleanDuplicates ? dedupeCards() : 0;
+    if (!chats.length) {
+      if (removed > 0) saveAll(() => { renderBoard(); showToast('Duplicados removidos'); });
+      else if (!options.silent) showToast('Contatos sincronizados');
+      return;
+    }
 
     let added = 0;
     let changed = false;
@@ -247,7 +311,7 @@
           card.source = card.source || 'manual';
           changed = true;
         }
-        if (card.name !== chat.name && card.chatId === chat.chatId) {
+        if (card.name !== chat.name && normalizeContactName(card.name) === normalizeContactName(chat.name)) {
           card.name = chat.name;
           changed = true;
         }
@@ -267,19 +331,28 @@
       changed = true;
     });
 
-    if (!changed) return;
+    if (options.cleanDuplicates) {
+      const removedAfterSync = dedupeCards();
+      if (removedAfterSync > 0) {
+        removed += removedAfterSync;
+        changed = true;
+      }
+    }
+    if (!changed) {
+      if (!options.silent) showToast('Contatos sincronizados');
+      return;
+    }
 
     saveAll(() => {
       renderBoard();
-      if (!options.silent && added > 0) {
-        showToast(added === 1 ? '1 conversa adicionada ao Kanban' : added + ' conversas adicionadas ao Kanban');
+      if (!options.silent) {
+        showToast(removed > 0 ? 'Duplicados removidos' : 'Contatos sincronizados');
       }
     });
   }
 
   function refreshFromWhatsApp() {
-    syncChatsFromWhatsApp({ silent: false });
-    showToast('Conversas atualizadas');
+    syncChatsFromWhatsApp({ silent: false, cleanDuplicates: true });
   }
 
   function scheduleChatScan() {
@@ -317,21 +390,71 @@
   }
 
   /* ============================================================
+     ABRIR CONVERSA VIA BUSCA NATIVA DO WHATSAPP
+  ============================================================ */
+
+  function findWhatsAppSearchInput() {
+    return document.querySelector('input[placeholder="Pesquisar ou começar uma nova conversa"]');
+  }
+
+  function setNativeInputValue(field, value) {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(field, value);
+  }
+
+  function notifyWhatsAppSearchInput(field) {
+    field.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+  }
+
+  function setWhatsAppSearchValue(field, value) {
+    field.focus();
+    setNativeInputValue(field, value);
+    notifyWhatsAppSearchInput(field);
+    field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, cancelable: true, view: window }));
+  }
+
+  async function openConversationFromSearch(card) {
+    const query = normalizeName(card && card.name);
+    if (!query) return;
+
+    const searchInput = findWhatsAppSearchInput();
+    if (!searchInput) {
+      showToast('Busca do WhatsApp não encontrada');
+      return;
+    }
+
+    if (searchInput.value.trim()) {
+      showToast('Apague a busca atual no WhatsApp e tente novamente');
+      return;
+    }
+
+    setWhatsAppSearchValue(searchInput, query);
+    showToast('Busca preenchida');
+  }
+
+  /* ============================================================
      MODAL DE EDIÇÃO DE CARD
   ============================================================ */
 
-  function openModal(cardId) {
+  function openModal(cardId, mode = 'edit') {
     editingId = cardId;
+    modalMode = mode;
     const card = cards.find(c => c.id === cardId);
     if (!card) return;
+    document.getElementById('wk-m-title').textContent = mode === 'note' ? 'Notas' : 'Editar contato';
+    document.getElementById('wk-m-name-label').textContent = mode === 'note' ? 'Contato' : 'Nome';
+    document.getElementById('wk-m-note-label').textContent = mode === 'note' ? 'Nota' : 'Nota';
     document.getElementById('wk-m-name').value = card.name || '';
+    document.getElementById('wk-m-name').readOnly = mode === 'note';
     document.getElementById('wk-m-note').value = card.note || '';
     document.getElementById('wk-modal-overlay').classList.add('visible');
-    document.getElementById('wk-m-name').focus();
+    document.getElementById(mode === 'note' ? 'wk-m-note' : 'wk-m-name').focus();
   }
 
   function closeModal() {
     document.getElementById('wk-modal-overlay').classList.remove('visible');
+    document.getElementById('wk-m-name').readOnly = false;
     editingId = null;
   }
 
@@ -342,9 +465,9 @@
     const name = document.getElementById('wk-m-name').value.trim();
     const note = document.getElementById('wk-m-note').value.trim();
     if (!name) return;
-    card.name = name;
+    if (modalMode !== 'note') card.name = name;
     card.note = note;
-    saveAll(() => { renderBoard(); closeModal(); showToast('Contato atualizado'); });
+    saveAll(() => { renderBoard(); closeModal(); showToast(modalMode === 'note' ? 'Nota salva' : 'Contato atualizado'); });
   }
 
   /* ============================================================
@@ -731,7 +854,7 @@
       colHeader.appendChild(badge);
       colHeader.appendChild(headerLeftBtn);
       colHeader.appendChild(headerRightBtn);
-      colHeader.appendChild(headerAddBtn);
+      if (i === 0) colHeader.appendChild(headerAddBtn);
       colHeader.appendChild(headerDelBtn);
 
       /* Lista de cards */
@@ -758,25 +881,18 @@
           cardEl.dataset.id = card.id;
           cardEl.draggable  = true;
 
-          const sub = card.note
-            ? card.note.slice(0, 40) + (card.note.length > 40 ? '…' : '')
-            : cardPreview(card);
-
           cardEl.innerHTML = `
             <div class="wk-avatar ${avatarClass(card.name)}">${esc(initials(card.name))}</div>
             <div class="wk-card-body">
               <div class="wk-card-top">
                 <div class="wk-card-name">${esc(card.name)}</div>
-                <span class="wk-card-time">${esc(cardTime(card))}</span>
-              </div>
-              <div class="wk-card-bottom">
-                <div class="wk-card-sub">${esc(sub)}</div>
-                <span class="wk-agent-badge">${esc(initials(card.name))}</span>
               </div>
             </div>
             <button class="wk-card-menu-btn" title="Opções">⋮</button>
             <div class="wk-dropdown">
+              <button class="wk-dd-item open-chat-item">Abrir conversa</button>
               <button class="wk-dd-item edit-item">✏ Editar</button>
+              <button class="wk-dd-item note-item">📝 Notas</button>
               <button class="wk-dd-item danger del-item">✕ Remover</button>
             </div>
           `;
@@ -796,6 +912,18 @@
             e.stopPropagation();
             closeAllDropdowns();
             openModal(card.id);
+          });
+
+          cardEl.querySelector('.open-chat-item').addEventListener('click', e => {
+            e.stopPropagation();
+            closeAllDropdowns();
+            openConversationFromSearch(card);
+          });
+
+          cardEl.querySelector('.note-item').addEventListener('click', e => {
+            e.stopPropagation();
+            closeAllDropdowns();
+            openModal(card.id, 'note');
           });
 
           cardEl.querySelector('.del-item').addEventListener('click', e => {
@@ -871,15 +999,11 @@
     root.innerHTML = `
       <div id="wk-header">
         <button class="wk-icon-btn" id="wk-btn-menu" title="Adicionar contato manual">${iconMenu()}</button>
-        <span id="wk-title">Kanban CRM</span>
+        <span id="wk-title">Morara CRM</span>
         <span id="wk-total-count">0</span>
         <button class="wk-text-btn" id="wk-btn-add-col" type="button">+ Coluna</button>
 
         <div class="wk-toolbar-spacer"></div>
-
-        <select id="wk-agent-filter" aria-label="Filtrar atendente">
-          <option>Todos os atendentes</option>
-        </select>
 
         <div id="wk-search-wrap">
           ${iconSearch()}
@@ -906,6 +1030,7 @@
       </div>
 
       <div id="wk-board"></div>
+      <div id="wk-branding">Powered by Morara</div>
     `;
 
     document.body.appendChild(root);
@@ -915,10 +1040,10 @@
     modalOverlay.id = 'wk-modal-overlay';
     modalOverlay.innerHTML = `
       <div id="wk-modal">
-        <h3>Editar contato</h3>
-        <label class="wk-m-label">Nome</label>
+        <h3 id="wk-m-title">Editar contato</h3>
+        <label class="wk-m-label" id="wk-m-name-label">Nome</label>
         <input  class="wk-m-input"    id="wk-m-name" type="text" placeholder="Nome do contato" maxlength="60">
-        <label class="wk-m-label">Nota</label>
+        <label class="wk-m-label" id="wk-m-note-label">Nota</label>
         <textarea class="wk-m-textarea" id="wk-m-note" placeholder="Anotação rápida…"></textarea>
         <div class="wk-m-actions">
           <button class="wk-m-btn cancel" id="wk-m-cancel">Cancelar</button>
@@ -1020,7 +1145,6 @@
       syncChatsFromWhatsApp({ silent: false });
       startChatObserver();
     });
-    console.log('[Kanban CRM v2] Carregado ✓');
   }
 
   function waitForWhatsApp() {

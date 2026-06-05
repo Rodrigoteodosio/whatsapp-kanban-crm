@@ -5,6 +5,4 @@
  * Toda a lógica fica em content.js.
  */
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('[Kanban CRM] Extensão instalada/atualizada.');
-});
+chrome.runtime.onInstalled.addListener(() => {});

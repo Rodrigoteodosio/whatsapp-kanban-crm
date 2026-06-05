@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "WhatsApp Kanban CRM",
+  "name": "Morara CRM",
   "version": "1.0.0",
-  "description": "CRM visual em formato Kanban para o WhatsApp Web. Organize suas conversas em colunas: Novo, Em atendimento, Retornar e Fechado.",
+  "description": "CRM visual para WhatsApp Web em formato Kanban.",
   "permissions": [
     "storage"
   ],
@@ -26,6 +26,6 @@
     "128": "icon128.png"
   },
   "action": {
-    "default_title": "WhatsApp Kanban CRM"
+    "default_title": "Morara CRM"
   }
 }

@@ -1,6 +1,6 @@
-# WhatsApp Kanban CRM
+# Morara CRM
 
-Extensão Chrome (Manifest V3) que injeta um componente Kanban fixo no rodapé do WhatsApp Web.
+Extensão Chrome (Manifest V3) que adiciona um CRM visual em formato Kanban ao WhatsApp Web.
 
 ## Funcionalidades
 
@@ -9,7 +9,7 @@ Extensão Chrome (Manifest V3) que injeta um componente Kanban fixo no rodapé d
 - 4 colunas fixas: **Novo**, **Em atendimento**, **Aguardando**, **Fechado**
 - Leitura automática das conversas visíveis na lista lateral do WhatsApp Web
 - Novas conversas viram cards automaticamente na coluna **Novo**
-- Toolbar com menu, contador total, filtro de atendentes, busca, editar colunas, atualizar e expandir/recolher
+- Toolbar com menu, contador total, busca, editar colunas, atualizar e expandir/recolher
 - Cards arrastáveis entre colunas (drag & drop nativo)
 - Editar nome e nota de cada card (modal)
 - Remover card pelo menu do card
